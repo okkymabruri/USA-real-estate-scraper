@@ -4,8 +4,6 @@ from concurrent.futures import ThreadPoolExecutor, wait
 import datetime
 import sys
 from time import sleep, time
-from webdriver_manager.chrome import ChromeDriverManager
-from pathlib import Path
 import pandas as pd
 
 # argv[2]
