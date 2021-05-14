@@ -4,9 +4,8 @@ from concurrent.futures import ThreadPoolExecutor, wait
 import datetime
 import sys
 from time import sleep, time
-import pandas as pd
-
-# argv[2]
+from bs4 import BeautifulSoup
+import requests
 
 
 def get_driver(headless):
@@ -35,6 +34,23 @@ def write_header(filename):
             "Property Description",
             "Aerial Viewer Link",
             "Parcel Details Link",
+            "just",
+            "assessed",
+            "portability_applied",
+            "cap_assessed",
+            "taxable",
+            "cap_difference",
+            "land_units",
+            "units_value",
+            "number_buildings",
+            "bedrooms",
+            "tax_roll",
+            "historic_designation",
+            "community",
+            "panel",
+            "version",
+            "date",
+            "evacuation_zone",
         ]
         writer = csv.writer(csvfile)
         writer.writerow(fieldnames)
@@ -43,14 +59,24 @@ def write_header(filename):
 def connect_to_base(browser, strap_id, filename):
     base_url = f"https://www.leepa.org/Search/PropertySearch.aspx?STRAP={strap_id}"
     connection_attempts = 0
+    session = requests.Session()
+
+    session.headers.update(
+        {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36",
+            "Cookie": "_ga=GA1.2.990083083.1567017963; _gid=GA1.2.953115123.1567017963; BIGipServer~external~www.pbcgov.com_papa=rd102o00000000000000000000ffff978433b0o80; ASP.NET_SessionId=oluqmbqiyhhts22tefyfix4e; _gat_gtag_UA_117168590_1=1; _gat_gtag_UA_70407948_1=1",
+        }
+    )
+    session = requests.Session()
+
     while connection_attempts < 3:
         try:
             browser.get(base_url)
-            sleep(4)
+            sleep(1.5)
             browser.find_element_by_xpath(
                 '//*[@id="ctl00_BodyContentPlaceHolder_SubmitPropertySearch"]'
             ).click()
-            sleep(2)
+            sleep(1.5)
             Xpath = '//*[@id="ctl00_BodyContentPlaceHolder_PropertySearchUpdatePanel"]/div[5]/table/tbody/tr[{}]/td[{}]'
 
             strapid = browser.find_elements_by_xpath(Xpath.format(1, 1))[0].text
@@ -58,9 +84,56 @@ def connect_to_base(browser, strap_id, filename):
             owner = browser.find_elements_by_xpath(Xpath.format(1, 2))[0].text
             site_address = browser.find_elements_by_xpath(Xpath.format(1, 3))[0].text
             property_desc = browser.find_elements_by_xpath(Xpath.format(2, 2))[0].text
-            # parcel_detail = browser.find_elements_by_xpath(
-            #     Xpath.format(1, 4) + "/table/tbody/tr[1]/th[1]/a"
-            # )[0].get_attribute("href")
+
+            # open parcel detail
+            r = session.get(
+                f"https://www.leepa.org/Display/DisplayParcel.aspx?FolioID={folioid}&TaxRollDetails=True&ElevationDetails=True#ElevationDetails"
+            )
+            soup = BeautifulSoup(r.text, features="html.parser")
+            just = ""
+            assessed = ""
+            portability_applied = ""
+            cap_assessed = ""
+            taxable = ""
+            cap_difference = ""
+            if soup.find_all("table", {"class": "appraisalDetailsRight autoAlternate"}):
+                propertyvalues = soup.find_all(
+                    "table", {"class": "appraisalDetailsRight autoAlternate"}
+                )[0]
+                just = propertyvalues.find_all("td")[0].text.strip()
+                assessed = propertyvalues.find_all("td")[1].text.strip()
+                portability_applied = propertyvalues.find_all("td")[2].text.strip()
+                cap_assessed = propertyvalues.find_all("td")[3].text.strip()
+                taxable = propertyvalues.find_all("td")[4].text.strip()
+                cap_difference = propertyvalues.find_all("td")[5].text.strip()
+            land_units = ""
+            units_value = ""
+            number_buildings = ""
+            bedrooms = ""
+            tax_roll = ""
+            historic_designation = ""
+            if soup.find_all("table", {"class": "appraisalDetailsRight autoAlternate"}):
+                attribute = soup.find_all(
+                    "table", {"class": "appraisalDetailsRight autoAlternate"}
+                )[1]
+                land_units = attribute.find_all("td")[0].text.strip()
+                units_value = attribute.find_all("td")[1].text.strip()
+                number_buildings = attribute.find_all("td")[2].text.strip()
+                bedrooms = attribute.find_all("td")[3].text.strip()
+                tax_roll = attribute.find_all("td")[4].text.strip()
+                historic_designation = attribute.find_all("td")[5].text.strip()
+            community = ""
+            panel = ""
+            version = ""
+            date = ""
+            evacuation_zone = ""
+            if soup.find_all("table", {"class": "appraisalDetailsRight autoAlternate"}):
+                ElevationDetails = soup.find("table", {"class": "detailsTable"})
+                community = ElevationDetails.find_all("td")[0].text.strip()
+                panel = ElevationDetails.find_all("td")[1].text.strip()
+                version = ElevationDetails.find_all("td")[2].text.strip()
+                date = ElevationDetails.find_all("td")[3].text.strip()
+                evacuation_zone = ElevationDetails.find_all("td")[4].text.strip()
             property_info = [
                 strapid,
                 folioid,
@@ -69,6 +142,23 @@ def connect_to_base(browser, strap_id, filename):
                 property_desc,
                 f"http://gissvr.leepa.org/geoview2/?FolioID={folioid}",
                 f"https://www.leepa.org/Display/DisplayParcel.aspx?FolioID={folioid}",
+                just,
+                assessed,
+                portability_applied,
+                cap_assessed,
+                taxable,
+                cap_difference,
+                land_units,
+                units_value,
+                number_buildings,
+                bedrooms,
+                tax_roll,
+                historic_designation,
+                community,
+                panel,
+                version,
+                date,
+                evacuation_zone,
             ]
             write_to_file(property_info, filename)
             return True
@@ -99,9 +189,17 @@ if __name__ == "__main__":
     # headless mode?
     headless = False
     if len(sys.argv) > 1:
-        if sys.argv[1] == "headless":
+        if sys.argv[2] == "headless":
             print("Running in headless mode")
             headless = True
+    input_file = sys.argv[1]
+    input_data = []
+    results = []
+    with open(input_file) as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:  # each row is a list
+            results.append(row[0])
+        input_data = results
 
     # set variables
     start_time = time()
@@ -109,16 +207,12 @@ if __name__ == "__main__":
     output_filename = f"leepa_{output_timestamp}.csv"
     futures = []
 
-    # scrape and crawl
-    STRAP_df = pd.read_excel("Lee County FL - Auction List 2021.xls")[
-        "Account No. (STRAP)"
-    ]
-    total_count = len(STRAP_df)
+    total_count = len(input_data)
 
     write_header(output_filename)
     count = 1
     with ThreadPoolExecutor() as executor:
-        for strap_id in STRAP_df:
+        for strap_id in input_data:
             futures.append(
                 executor.submit(run_process, strap_id, output_filename, headless)
             )
