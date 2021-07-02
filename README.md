@@ -1,7 +1,7 @@
-# USA Property Scraper
+# USA Real Estate Scraper
 
 ## Table of content
-- [USA Property Scraper](#usa-property-scraper)
+- [USA Real Estate Scraper](#usa-real-estate-scraper)
   - [Table of content](#table-of-content)
   - [List Scraper](#list-scraper)
   - [How to use](#how-to-use)
